@@ -2,7 +2,8 @@
 import ExerciseReport from "./ExerciseReport.vue";
 import HealthReport from "./HealthReport.vue";
 import { ref, onMounted, onUnmounted } from "vue";
-
+import { useExerciseStore } from "@/stores/exerciseStore";
+import { useHealthStore } from "@/stores/healthStore";
 const tabs = ["one", "two"];
 const tab = ref("one");
 
@@ -16,7 +17,7 @@ function startCycle() {
       const currentIndex = tabs.indexOf(tab.value);
       tab.value = tabs[(currentIndex + 1) % tabs.length];
     }
-  }, 6000);
+  }, 8000);
 }
 function stopCycle() {
   if (intervalId) {
@@ -24,8 +25,13 @@ function stopCycle() {
     intervalId = null;
   }
 }
-onMounted(startCycle);
-onUnmounted(stopCycle);
+// onMounted(startCycle);
+// onUnmounted(stopCycle);
+
+const exerciseStore = useExerciseStore();
+const healthStore = useHealthStore();
+
+onMounted(async () => {});
 </script>
 
 <template>
@@ -42,27 +48,28 @@ onUnmounted(stopCycle);
       style="border-radius: 25px 25px 0 0"
       slider-color="#3bbeff"
     >
-      <v-tab value="one">운동 리포트</v-tab>
-      <v-tab value="two">건강 리포트</v-tab>
+      <v-tab value="one" class="text-subtitle-1 text-sm-h6">운동 리포트</v-tab>
+      <v-tab value="two" class="text-subtitle-1 text-sm-h6">건강 리포트</v-tab>
     </v-tabs>
     <v-card-text height="300">
-      <v-tabs-window v-model="tab">
+      <v-window v-model="tab">
         <ExerciseReport />
         <HealthReport />
-      </v-tabs-window>
+      </v-window>
     </v-card-text>
   </v-card>
 </template>
 
 <style lang="scss" scoped>
 .card {
+  // max-width: 400px;
+
+  min-width: 310px;
   width: 400px;
   height: 300px;
   border-radius: 25px 25px 0 0;
 }
 .v-tab {
-  font-size: 18px;
-  font-weight: 700;
   color: #fff;
 }
 .v-tab.v-tab--selected {

@@ -8,11 +8,11 @@ const route = useRoute();
 const isRootMenu = computed(() => route.path.startsWith('/memoAndDiary') && route.matched.length === 1);
 
 const goToMemo = () => {
-  router.push('/memoAndDiary/memo/list');
+  router.push('/memoAndDiary/memolist');
 };
 
 const goToDiary = () => {
-  router.push('/memoAndDiary/diary/list');
+  router.push('/memoAndDiary/diarylist');
 };
 </script>
 

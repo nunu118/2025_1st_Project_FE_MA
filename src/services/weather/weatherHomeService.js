@@ -8,3 +8,11 @@ export const getWeather = () => {
 export const getNickName = () => {
   return axios.get('/weather/info').catch((e) => e.response);
 };
+
+export const getDailyWeather = () => {
+  return axios.get('/weather/daily').catch((e) => e.response);
+};
+
+export const saveGpsAddress = async (locationData) => {
+  return await axios.post('/location/post', locationData);
+};

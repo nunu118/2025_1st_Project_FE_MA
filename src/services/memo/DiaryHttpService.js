@@ -4,74 +4,73 @@ axios.defaults.baseURL = import.meta.env.VITE_API_URL;
 axios.defaults.withCredentials = true;
 
 class DiaryHttpService {
-
   async findAll(params) {
-    try {
-      const res = await axios.get('/memoAndDiary/diary', { params });
-      console.log('서버 응답:', res.data.resultData);
-      return res.data.resultData;
-    } catch (err) {
-      console.error('❌ API 요청이 HTML을 반환했습니다. 경로 확인 필요');
-      if (err.response?.data) {
-        console.error(err.response.data);
-      }
-      console.error('서버 요청 실패:', err);
-      throw err;
-    }
+    const result = await this._request('get', '/memoAndDiary/diary', { params }, '다이어리 목록 조회');
+    console.log('📘 [Diary] 서버 응답:', result);
+    return result;
   }
 
   async findById(diaryId) {
-    try {
-      const res = await axios.get(`/memoAndDiary/diary/${diaryId}`);
-      return res.data.resultData;
-    } catch (err) {
-      this._handleError(err, `다이어리(ID: ${diaryId}) 조회`);
-      throw err;
-    }
+    return this._request('get', `/memoAndDiary/diary/${diaryId}`, null, `다이어리(ID: ${diaryId}) 조회`);
   }
 
   async create(formData) {
-    try {
-      const res = await axios.post('/memoAndDiary/diary', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data.resultData;
-    } catch (err) {
-      this._handleError(err, '다이어리 등록');
-      throw err;
-    }
+    return this._request('post', '/memoAndDiary/diary', formData, '다이어리 등록', {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   }
 
   async modify(formData) {
-    try {
-      const res = await axios.put('/memoAndDiary/diary', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data.resultData;
-    } catch (err) {
-      this._handleError(err, '다이어리 수정');
-      throw err;
-    }
+    return this._request('put', '/memoAndDiary/diary', formData, '다이어리 수정', {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   }
 
-  async deleteById(diaryId) {
+  async deleteById(id) {
+    return this._request('delete', `/memoAndDiary/diary/${id}`, null, `다이어리(ID: ${id}) 삭제`);
+  }
+
+  async _request(method, url, data, context, extraConfig = {}) {
     try {
-      const res = await axios.delete(`/memoAndDiary/diary/${diaryId}`);
-      return res.data.resultData;
+      let res;
+      if (method === 'get' || method === 'delete') {
+        res = await axios[method](url, { ...extraConfig, ...(data || {}) });
+      } else {
+        res = await axios[method](url, data, extraConfig);
+      }
+
+      const result = res?.data?.resultData ?? {};
+
+      // HTML 반환 체크 (예외 처리)
+      if (typeof result === 'string' && result.startsWith('<!DOCTYPE html')) {
+        console.error('❌ API 요청이 HTML을 반환했습니다. 경로 확인 필요');
+      }
+
+      return result;
     } catch (err) {
-      this._handleError(err, `다이어리(ID: ${diaryId}) 삭제`);
+      this._handleError(err, context);
       throw err;
     }
   }
 
   _handleError(err, contextMessage) {
     const status = err.response?.status;
+    let message = `❌ ${contextMessage} 중 오류가 발생했습니다.`;
+
     if (status === 401) {
-      console.error(`🔒 401: 인증 필요 - ${contextMessage}`);
+      message = '🔒 로그인 후 이용해주세요.';
     } else if (status === 403) {
-      console.error(`⛔ 403: 권한 없음 - ${contextMessage}`);
-    } else {
-      console.error(`📔 ${contextMessage} 실패:`, err);
+      message = '⛔ 권한이 없습니다.';
+    } else if (status === 500) {
+      message = '💥 서버 내부 오류가 발생했습니다.';
+    }
+
+    alert(message);
+    console.error(`❌ ${contextMessage} 실패:`, err);
+
+    // HTML 응답 디버깅 출력
+    if (err.response?.data && typeof err.response.data === 'string' && err.response.data.startsWith('<!DOCTYPE html')) {
+      console.error('❗ HTML 응답 내용:', err.response.data);
     }
   }
 }

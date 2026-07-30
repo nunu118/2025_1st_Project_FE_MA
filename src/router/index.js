@@ -1,17 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAccountStore } from '@/stores/counter';
-
 import ReminderHome from '@/views/reminder/ReminderHome.vue';
-import ReminderForm from '@/views/reminder/ReminderForm.vue';
-import ReminderList from '@/views/reminder/ReminderList.vue';
+// import ReminderForm from '@/views/reminder/ReminderForm.vue';
+// import ReminderList from '@/views/reminder/ReminderList.vue';
+// import ReminderDetail from '@/components/reminder/ReminderDetail.vue';
 
+import MemoList from '@/components/memo/MemoList.vue';
+import DiaryList from '@/components/memo/DiaryList.vue';
 import MemoAndDiary from '@/views/memo/MemoAndDiary.vue';
-import MemoListPage from '@/components/memo/MemoListPage.vue';
-import MemoDetail from '@/components/memo/MemoDetail.vue';
-import DiaryListPage from '@/components/memo/DiaryListPage.vue';
-import DiaryDetail from '@/components/memo/DiaryDetail.vue';
-
 import CommunityView from '@/views/community/CommunityView.vue';
+// 커뮤니티 클릭했을때 리스트만 보이게 하기 위해 추가한 코드
+import { usecommunityStore } from '@/stores/community/communityStore';
 
 import MealForm from '@/views/meal/MealForm.vue';
 import MealAdd from '@/views/meal/MealAdd.vue';
@@ -23,79 +22,145 @@ import ElogForm from '@/views/health/ElogForm.vue';
 import HlogDetail from '@/views/health/HlogDetail.vue';
 import HlogForm from '@/views/health/HlogForm.vue';
 
-import Join from '@/views/Join.vue';
-import Login from '@/views/Login.vue';
-import Profile from '@/views/Profile.vue';
+import Join from '@/views/member/Join.vue';
+import Login from '@/views/member/Login.vue';
+import Profile from '@/views/member/Profile.vue';
+import ProfileDetail from '@/views/member/ProfileDetail.vue';
+import ProfilePassword from '@/views/member/Password.vue';
 
-import ProfileDetail from '@/views/ProfileDetail.vue';
-
-
-import Location from '@/components/location/Location.vue';
+import NaverMaps from "@/views/maps/Map.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', name: 'home', component: () => import('@/views/Home.vue') },
-
-    { path: '/community', name: 'community', component: CommunityView, meta: { requiresAuth: true } },
-
+    {
+      path: '/',
+      name: 'home',
+      component: () => import('@/views/Home.vue'),
+    },
+    {
+      path: '/community',
+      name: 'community',
+      component: CommunityView,
+      meta: { requiresAuth: true },
+    },
     {
       path: '/reminder',
+      name: 'reminder',
       component: ReminderHome,
       meta: { requiresAuth: true },
-      children: [
-        { path: '', name: 'reminder', component: ReminderList },
-        { path: 'form', name: 'reminderform', component: ReminderForm },
-      ],
-    },
-
+    }, 
     {
       path: '/meal',
-      children: [
-        { path: '', name: 'MealForm', component: MealForm, meta: { requiresAuth: true } },
-        { path: 'add', name: 'MealAdd', component: MealAdd },
-        { path: 'statistic', name: 'MealStatistic', component: MealStatistic },
-      ],
+      name: 'MealForm',
+      component: MealForm,
+      meta: { requiresAuth: true },
     },
-
-    { path: '/health', name: 'healthMain', component: HealthMain, meta: { requiresAuth: true } },
-    { path: '/elog/:exerciselogId', name: 'ElogDetail', component: ElogDetail },
-    { path: '/elog/form', name: 'ElogForm', component: ElogForm },
-    { path: '/hlog/:healthlogId', name: 'HlogDetail', component: HlogDetail },
-    { path: '/hlog/add', name: 'HlogForm', component: HlogForm },
-
-    { path: '/signup', name: 'join', component: Join },
-    { path: '/login', name: 'login', component: Login },
-    { path: '/profile', name: 'profile', component: Profile, meta: { requiresAuth: true } },
-    { path: '/detail', name: 'profile_detail', component: ProfileDetail, meta: { requiresAuth: true } },
-
-    { path: '/location', name: 'location', component: Location, meta: { requiresAuth: true } },
-
+    {
+      path: '/meal/add',
+      name: 'MealAdd',
+      component: MealAdd,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/meal/MealStatistic',
+      name: 'MealStatistic',
+      component: MealStatistic,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/health',
+      name: 'healthMain',
+      component: HealthMain,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/health/elog/:exerciselogId',
+      name: 'ElogDetail',
+      component: ElogDetail,
+    },
+    {
+      path: '/health/elog/form',
+      name: 'ElogForm',
+      component: ElogForm,
+    },
+    {
+      path: '/health/hlog/:healthlogId',
+      name: 'HlogDetail',
+      component: HlogDetail,
+    },
+    {
+      path: '/health/hlog/add',
+      name: 'HlogForm',
+      component: HlogForm,
+    },
+    {
+      path: '/signup',
+      name: 'join',
+      component: Join,
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: Login,
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: Profile,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/detail',
+      name: 'profile_detail',
+      component: ProfileDetail,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/password',
+      name: 'profile_password',
+      component: ProfilePassword,
+      meta: { requiresAuth: true },
+    },
     {
       path: '/memoAndDiary',
       name: 'memoAndDiary',
       component: MemoAndDiary,
-
+      props: true,
       meta: { requiresAuth: true },
-      children: [
-        { path: 'memo/list', name: 'MemoListPage', component: MemoListPage },
-        { path: 'memo/add', name: 'MemoAdd', component: MemoDetail },
-        { path: 'memo/:id', name: 'MemoDetail', component: MemoDetail },
-
-        { path: 'diary/list', name: 'DiaryListPage', component: DiaryListPage },
-        { path: 'diary/add', name: 'DiaryCreate', component: DiaryDetail },
-        { path: 'diary/:id', name: 'DiaryDetail', component: DiaryDetail },
-      ],
     },
-  
+    {
+      path: '/memoAndDiary/memolist',
+      name: 'memo',
+      component: MemoList,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/memoAndDiary/diarylist',
+      name: 'diary',
+      component: DiaryList,
+      props: true,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/navermaps',
+      name: 'NaverMaps',
+      component: NaverMaps,
+      props: true,
+    },
   ],
 });
-
 router.beforeEach((to) => {
   const accountStore = useAccountStore();
   if (to.meta.requiresAuth && !accountStore.state.loggedIn) {
     return '/login';
   }
+  // 커뮤니티 진입 시 항상 리스트 모드로 강제
+  if (to.path === '/community') {
+    const cstore = usecommunityStore();
+    cstore.clearSelectedPost?.(); // 선택 글 초기화
+    cstore.goList?.(); // viewMode = 'list'
+  }
 });
-
 export default router;

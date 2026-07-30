@@ -1,29 +1,14 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useExerciseStore } from "@/stores/exerciseStore";
 import effortLevels from "@/assets/health/effortLevels.json";
 import { getFeedbackMessage } from "@/utils/getFeedbackMessage";
-import {
-  getDateString,
-  getYesterdayDateString,
-  filterLogsByDate,
-  calcKcal,
-  calcDuration,
-  calcEffortAvg,
-} from "@/utils/exerciseReportUtils";
+import { calcKcal, calcDuration, calcEffortAvg } from "@/utils/reportUtils";
 
 const exerciseStore = useExerciseStore();
 
-// YYYY-MM-DD
-const todayStr = getDateString();
-const yesterdayStr = getYesterdayDateString();
-
-const todayLogs = computed(() =>
-  filterLogsByDate(exerciseStore.logs, todayStr)
-);
-const yesterdayLogs = computed(() =>
-  filterLogsByDate(exerciseStore.logs, yesterdayStr)
-);
+const todayLogs = computed(() => exerciseStore.today);
+const yesterdayLogs = computed(() => exerciseStore.yesterday);
 
 const todayKcal = computed(() => calcKcal(todayLogs.value));
 const yesterdayKcal = computed(() => calcKcal(yesterdayLogs.value));
@@ -42,10 +27,9 @@ const feedbackMessage = computed(() =>
     yesterdayEffort: yesterdayEffortAvg.value,
     todayKcal: todayKcal.value,
     yesterdayKcal: yesterdayKcal.value,
-    isFirst: todayLogs.value.length === 1 && yesterdayLogs.value.length === 0,
-    isComeback:
-      yesterdayLogs.value.length === 0 && todayLogs.value.length === 1,
-    hasRecord: todayLogs.value.length > 0,
+    isFirst: todayLogs.length === 1 && yesterdayLogs.length === 0,
+    isComeback: yesterdayLogs.length === 0 && todayLogs.length === 1,
+    hasRecord: todayLogs.length > 0,
   })
 );
 
@@ -56,7 +40,7 @@ const effortIndex = computed(() => {
 </script>
 
 <template>
-  <v-tabs-window-item value="one" class="exercise_report">
+  <v-window-item value="one" class="exercise_report">
     <v-col class="content_left">
       <div>
         <div class="title">활동에너지</div>
@@ -79,7 +63,7 @@ const effortIndex = computed(() => {
       </div>
       <div>{{ feedbackMessage }}</div>
     </v-col>
-  </v-tabs-window-item>
+  </v-window-item>
 </template>
 
 <style lang="scss" scoped>

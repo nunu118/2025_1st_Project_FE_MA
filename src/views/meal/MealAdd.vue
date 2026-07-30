@@ -1,24 +1,41 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
 import { debounce, toNumber } from 'lodash';
+import { useDisplay } from 'vuetify';
+
 import {
   getFoodNames,
   getFoodCalorie,
   inputMealData,
   getMealData,
   modifyMealdata,
-  getWeekTotal
+  getWeekTotal,
 } from '@/services/meal/mealService';
 import { useRouter } from 'vue-router';
 import {
   useDayDefine,
   useAlldayMeal,
-  useCalorieCalcul, useWeeklyStore, useBaseDate
+  useCalorieCalcul,
+  useWeeklyStore,
+  useBaseDate,
 } from '@/stores/mealStore';
+
+import dayjs from 'dayjs';
+
+import 'dayjs/locale/ko';
+
+dayjs.locale('ko');
+
+const BASE_URL = '/image';
+
+//크기 판별 변수
+const { smAndUp } = useDisplay();
 
 const dayStore = useDayDefine();
 const weeklyData = useWeeklyStore();
 const weekDay = useBaseDate();
+const calorieData = useCalorieCalcul();
+
 
 const router = useRouter();
 
@@ -115,22 +132,6 @@ const changeText = debounce((type) => {
   searchFoodName(type);
 }, 50);
 
-// 아래 value 나 append뒤에 적힌건 함수화해서 값넘겨서 값보고 그떄별로 다르게 표시되는거
-
-// 현재 시간
-// const currentTime = ref('');
-// const updateTime = () => {
-//   const now = new Date();
-//   const year = now.getFullYear();
-//   const month = String(now.getMonth() + 1).padStart(2, '0');
-//   const day = String(now.getDate()).padStart(2, '0');
-//   const ampm = String(now.getHours() - 12 <= 0 ? '오전' : '오후');
-//   const hours = String(now.getHours()).padStart(2, '0');
-//   const minutes = String(now.getMinutes()).padStart(2, '0');
-//   const seconds = String(now.getSeconds()).padStart(2, '0');
-//   currentTime.value = `${ampm} ${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-// };
-
 // 목록 추가
 const onItemClick = (item) => {
   // console.log('드롭다운에서 클릭된 시점 아이템:', items);
@@ -151,6 +152,7 @@ const onItemClick = (item) => {
 
 // 배열 데이터 삭제
 const removeItem = (index) => {
+  // console.log('삭제할 인덱스:', index);
   itemList.value.splice(index, 1);
 };
 //칼로리 계산
@@ -164,19 +166,7 @@ const calcCalories = (item) => {
 
 const inputData = useAlldayMeal();
 
-
-
-
-const saveClick =()=> {
-  if (window.confirm("저장 하시겠습니까?")) {
-    saveMeal();
-  } else {
-    console.log("취소되었습니다.");
-  }
-}
 const setItem = () => {
-
-  
   inputData.dayMealCategory.foodDbId = itemList.value.map(
     (info) => info.foodDbId
   );
@@ -187,8 +177,8 @@ const setItem = () => {
     }, 0)
     .toFixed(0);
   inputData.dayMealCategory.mealBrLuDi = dayStore.dayDefine;
-  //현재 시간 기점이라 생각해야함
-  inputData.dayMealCategory.mealDay = dayStore.currentTime.slice(3, 13);
+  //선택한 시간 기점이라 생각해야함
+  inputData.dayMealCategory.mealDay = calorieData.itemInfo.mealDay;
 };
 
 const saveMeal = async () => {
@@ -207,22 +197,13 @@ const saveMeal = async () => {
     saveText.value = '수정하기';
   }
   if (res.status !== 200) {
-    console.log('입력 ', res);
+    // console.log('입력 ', res);
     // 주간 뿌려주는 데이터 변경
     const result = await getWeekTotal(weekDay.getWeekDate);
-    console.log("수정하고 주간 데이터 변경 ", result.data);
+    console.log('수정하고 주간 데이터 변경 ', result.data);
     weeklyData.weeklyRawData = result.data;
   }
 };
-
-//수정 하는곳
-function updateClick() {
-  if (window.confirm("수정 하시겠습니까?")) {
-    updateMeal();
-  } else {
-    console.log("취소되었습니다.");
-  }
-}
 
 const updateMeal = async () => {
   setItem();
@@ -230,36 +211,54 @@ const updateMeal = async () => {
   //현재 시간 기점이라 생각해야함
   // inputData.dayMealCategory.mealDay = currentTime.value.slice(3, 13);
 
-  // console.log(" 수정데이터들/ : ", inputData.dayMealCategory);
+  // console.log(' 수정데이터들/ : ', inputData.dayMealCategory);
 
-  const res = await modifyMealdata(inputData.dayMealCategory);
+  const resultModify = await modifyMealdata(inputData.dayMealCategory);
 
   if (itemList.value.length > 0) {
     saveText.value = '수정하기';
 
     // 주간 뿌려주는 데이터 변경
     const res = await getWeekTotal(weekDay.getWeekDate);
-    console.log("수정하고 주간 데이터 변경 ", res.data);
-    weeklyData.weeklyRawData = res.data;   
-    
+    // console.log("수정하고 주간 데이터 변경 ", res.data);
+    weeklyData.weeklyRawData = res.data;
   } else {
     saveText.value = '저장하기';
-   
   }
-  console.log('값:::', res);
+  // console.log('값:::', res);
 };
 
 const saveText = ref('저장하기');
-// 화면 뿌리기
 
-const getData = useAlldayMeal();
+// 모달 상태
+const dialog = ref({
+  visible: false,
+  type: 'save', // 'save' or 'update'
+});
+// 모달 열기
+const openDialog = (type) => {
+  dialog.value.type = type;
+  dialog.value.visible = true;
+};
+
+// 확인 버튼 클릭 시 실행
+const confirmAction = () => {
+  if (dialog.value.type === 'save') {
+    saveMeal();
+  } else {
+    updateMeal();
+  }
+  dialog.value.visible = false;
+};
+// 화면 뿌리기
 
 const getMeal = async () => {
   const getlist = {
+    // 아침: Br  점심: Lu 저녁: Di
     mealBrLuDi: dayStore.dayDefine,
-    mealDay: dayStore.currentTime.slice(3, 13),
+    mealDay: calorieData.itemInfo.mealDay,
   };
-  // console.log(" data들 : ",  getlist);
+  console.log(" data들 : ",  calorieData.itemInfo);
   const lisData = await getMealData(getlist);
 
   if (Array.isArray(lisData) && lisData.length > 0) {
@@ -283,8 +282,8 @@ const getMeal = async () => {
     mealDay: item.mealDay,
   }));
 
-  console.log(' data들 : ', itemList.value);
-  // console.log("아이디 데이터", inputData.dayMealCategory);
+  // console.log(' data들 : ', dayStore.currentTime.slice(3, 13));
+  // console.log(" 데이터", calorieData.itemInfo.mealDay);
   // 데이터 넣는곳
   // itemList.value.push({
   //   foodDbId: foodInfo.foodDbId,
@@ -298,45 +297,50 @@ const getMeal = async () => {
 };
 
 // 화면 불러올떄
-onMounted(() => {
+onMounted(async () => {
   dayStore.updateTime(); // 컴포넌트가 마운트될 때 초기 시간 설정
   // console.log("시간 ", currentTime);
-  setInterval(dayStore.updateTime, 1000); // 1초마다 시간 업데이트
-
-  getMeal();
+  await getMeal();
+  setInterval(dayStore.updateTime, 1000); // 1초마다 시간 업데이트 
 });
 </script>
 
 <template>
-  <div class="d-flex flex-column mb-6">
+  <div class="d-flex flex-column "  >
     <div>
-      <div class="text-grey-darken-1 mb-1 font-weight-bold flex-row">
-        <span class="text-h3 font-weight-bold">
+      <div class="addText text-grey-darken-1 mb-1 font-weight-bold">
+        <span class="menu text-h4 font-weight-bold text-md-h3">
           {{ dayStore.dayDefine }} 메뉴
         </span>
-        <!-- 아래는 배열객체의 값의 총합 -->
-        <span class="text-body-1 font-weight-bold">
-          오늘 먹은 칼로리
-          {{
-            itemList.reduce((sum, item) => sum + item.totalCalorie, 0)
-          }}
-          kcal</span
-        >
-        <span class="ml-10"> {{ dayStore.currentTime }} </span>
+        <div class="sub_menu pl-sm-5 mt-1">
+          <!-- 아래는 배열객체의 값의 총합 -->
+          <span class="eat_calorie text-body-1 font-weight-bold ml-10">
+            {{ dayjs(calorieData.itemInfo.mealDay).format('YYYY년 MM월 DD일 dddd') }}</span>
+          <span class="eat_calorie2 text-body-1 font-weight-bold">
+            먹은 칼로리{{
+              itemList.reduce((sum, item) => sum + item.totalCalorie, 0)
+            }}kcal
+          </span>
+          <span class="nowtime ml-sm-10">
+            현재 시간 : {{ dayStore.currentTime }}
+          </span>
+        </div>
       </div>
       <v-row dense class="justify-center">
         <v-col cols="12" md="5">
           <v-combobox
+            label="음식카테고리 입력하세요"
             class="mt-1 w-100"
             ref="categoryBox"
             v-model="searchFood.foodCategory"
             :items="items.foodCategory"
-            item-text="foodCategory"
-            @update:model-value="onCategoryInput"
-            label="음식카테고리 입력하세요"
-            variant="solo-inverted"
             rounded="xl"
+            item-text="foodCategory"
+            @click="onCategoryInput"
+            @update:model-value="onCategoryInput"            
+            variant="solo-inverted"            
             placeholder="음식카테고리"
+            color="info"
             @keyup.enter="() => searchFoodName('category')"
           >
             <template #append-inner>
@@ -391,24 +395,34 @@ onMounted(() => {
       </v-row>
     </div>
 
-    <v-virtual-scroll :items="itemList" class="mt-1 pa-3 mb-2" :height="400">
+    <v-virtual-scroll :items="itemList" v-if="itemList.length >0" class="mt-1 pa-3 mb-2 scroll_heigth" >
       <template v-slot:default="{ item }">
-        <div class="d-flex flex-column align-center">
+        <div class=" d-flex flex-column align-center">
           <v-card
-            class="mb-4 rounded-lx rounded-pill"
-            style="width: 600px"
+            class="mb-2 rounded-lx rounded-pill"
+            style="width:70%"
             variant="tonal"
+
           >
-            <v-card-title class="pl-5 pt-1">
-              <div class="d-flex justify-space-between w-100 align-start">
+            <v-card-title class=" pl-5 pt-1">
+              <div class="drop_insert_items d-flex justify-space-between w-100 align-start">
                 <!--  왼쪽: 음식 이름 + 기준 칼로리 -->
                 <div class="d-flex flex-column pt-1">
                   <span
-                    class="text-body-4 font-weight-bold p-2"
+                    class="md_text_foodname text-body-4 font-weight-bold"
                     color="black"
                     >{{
                       item.foodName.length > 20
                         ? item.foodName.slice(0, 20) + '…'
+                        : item.foodName
+                    }}</span
+                  >
+                  <span
+                    class=" sm_text_foodname  text-body-4 font-weight-bold p-2 "
+                    color="black"
+                    >{{
+                      item.foodName.length > 7
+                        ? item.foodName.slice(0, 6) + '…'
                         : item.foodName
                     }}</span
                   >
@@ -419,8 +433,8 @@ onMounted(() => {
 
                 <!--  오른쪽: 양 입력 & 계산된 칼로리 -->
                 <div
-                  class="d-flex flex-row align-center mt-2 ml-auto justify-content-between"
-                  style="width: 250px"
+                  class="d-flex flex-row align-center mt-2 ml-auto justify-end"
+                  style="width: 100%"
                 >
                   <div>
                     <v-text-field
@@ -437,8 +451,13 @@ onMounted(() => {
                     </span>
                   </div>
                   <div>
-                    <v-card-actions>
-                      <v-btn icon color="blue" @click="removeItem(i)">
+                    <v-card-actions  class="pa-0">
+                      <v-btn
+                     
+                        icon
+                        color="blue"
+                        @click="removeItem(itemList.indexOf(item))"
+                      >
                         <v-icon>mdi-delete</v-icon>
                       </v-btn>
                     </v-card-actions>
@@ -451,23 +470,48 @@ onMounted(() => {
       </template>
     </v-virtual-scroll>
     <div v-if="itemList.length === 0">
-      <v-alert variant="tonal" type="info">추가된 음식이 없습니다.</v-alert>
+      <v-alert class="mb-2" variant="tonal" type="info">추가된 음식이 없습니다.</v-alert>
     </div>
   </div>
 
   <div class="d-flex flex-row align-end justify-end">
-    <v-btn class="mealsaday text-center text-body-3" @click="meal">식단 홈으로</v-btn>
+    <v-btn class=" mealsaday text-center text-body-2 " @click="meal"
+      >
+      <span v-if=smAndUp > 식단 홈 </span>    
+      <img v-else :src="`${BASE_URL}/back-page.png` " class="meal-icon" alt="식단홈으로"  /> 
+      </v-btn>   
 
     <v-btn
-      class="mealsaday text-center ml-5 text-body-3"
-      @click="saveText === '저장하기' ? saveClick() : updateClick()"
-      >{{ saveText }}</v-btn
-    >
+      class="mealsaday text-center ml-5 text-body-2"
+      @click="openDialog(saveText === '저장하기' ? 'save' : 'update')"
+      >
+      <span v-if=smAndUp >{{ saveText }}</span>    
+      <img v-else :src="`${BASE_URL}/insert.png` " class="insert-icon" alt="식단홈으로"  /> 
+    </v-btn >
   </div>
+
+  <v-dialog v-model="dialog.visible" max-width="500px">
+    <v-card>
+      <v-card-title class="text-h5">
+        {{ dialog.type === 'save' ? '저장' : '수정' }} 확인
+      </v-card-title>
+      <v-card-text>
+        {{ dialog.type === 'save' ? '저장하시겠습니까?' : '수정하시겠습니까?' }}
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="dialog.visible = false">취소</v-btn>
+        <v-btn color="primary" @click="confirmAction">확인</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
   <!-- <v-btn class="mealsaday text-center " @click="modifyMeal">수정</v-btn> -->
 </template>
 
 <style scoped>
+.addText {
+  flex-direction: row;
+}
 .scroll-container {
   height: 600px;
   /* 원하는 높이 */
@@ -477,16 +521,93 @@ onMounted(() => {
 }
 
 .mealsaday {
-  width: 150px;
-  height: 70px;
+  width: 120px;
+  height: 50px;
   background-color: #3bbeff;
   color: white;
   border: none;
   font-weight: 1000;
   font-size: 15px;
   font-family: 'Noto Sans KR', sans-serif;
+  
   padding-left: 20px;
   padding-right: 20px;
   border-radius: 50px;
+}
+
+.md_text_foodname 
+{
+  padding-top: 10px;
+  display:flex;
+  /* justify-self: center; */ 
+}
+.sm_text_foodname{
+  display: none;
+}
+.meal-icon
+{
+  width: 80%;
+  height: 50%; 
+  filter: invert(1); 
+
+   /* 색상을 반전시켜 흰색으로 만듭니다. */
+}
+.insert-icon
+{
+  width: 70%;
+  filter: invert(1); 
+
+   /* 색상을 반전시켜 흰색으로 만듭니다. */
+}
+
+@media (max-width: 1024px)
+{
+  .scroll_heigth{
+  height: 400px;
+}
+}
+
+/* 작은 화면: 글자 옆으로 */
+@media (max-width: 760px) {
+  .sub_menu {
+    display: flex;
+    flex-direction: column;
+    justify-self: end;
+  }
+  .eat_calorie2 ,
+  .eat_calorie{
+    text-align: end;
+  }
+
+  .md_text_foodname 
+{
+  display: none;
+}
+.sm_text_foodname{
+  display: inline;
+}
+.drop_insert_items{
+  display: flex;
+  
+  flex-direction: row;
+
+}
+.scroll_heigth{
+  height: 300px;
+}
+}
+
+
+@media (max-width: 425px) {
+  .mealsaday{
+  /* display: none; */
+  width: 75px;
+  height: 40px;
+  }
+}
+
+@media (max-width: 375px) {
+}
+@media (max-width: 325px) {
 }
 </style>

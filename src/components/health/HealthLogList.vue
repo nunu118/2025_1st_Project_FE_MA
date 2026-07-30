@@ -1,62 +1,117 @@
 <script setup>
-import { onMounted, reactive } from "vue";
+import { onMounted, onUnmounted, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useHealthStore } from "@/stores/healthStore";
+import { formatDate } from "@/utils/reportUtils";
+import { getHlogList } from "@/services/health/hlogService";
+import { getDateString } from "@/utils/reportUtils";
 
 const router = useRouter();
 const healthStore = useHealthStore();
 
+const data = {
+  page: 1,
+  rowPerPage: 7,
+};
+
 const state = reactive({
-  logs: [],
+  isLoading: false,
+  isFinish: false,
 });
 
-onMounted(async () => {
-  await healthStore.fetchHealthlogs();
-  state.logs = healthStore.logs;
-  console.log(state.logs);
+// @scroll
+const handleScroll = (e) => {
+  const target = e.target; // .list-wrap
+  const scrollTop = target.scrollTop;
+  const scrollHeight = target.scrollHeight;
+  const clientHeight = target.clientHeight;
+
+  const nearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+  if (nearBottom) {
+    getData();
+  }
+};
+
+onMounted(() => {
+  getData();
 });
 
-const formatDate = (dateStr) => {
-  const date = new Date(dateStr);
-  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+onUnmounted(() => {
+  // healthStore.clearLogList();
+});
+
+const getData = async () => {
+  if (state.isLoading || state.isFinish) return;
+  state.isLoading = true;
+  const params = {
+    page: data.page++,
+    row_per_page: data.rowPerPage,
+  };
+  const res = await getHlogList(params);
+
+  if (res.status === 200) {
+    const result = res.data;
+    if (result && result.length > 0) {
+      healthStore.addLogList(result);
+    }
+    if (result.length < data.rowPerPage) {
+      state.isFinish = true;
+    }
+  }
+  state.isLoading = false;
 };
 
 // @click
+// 건강기록 추가
 const add = () => {
-  router.push("/hlog/add");
+  router.push("health/hlog/add");
 };
+// 건강기록 상세페이지로 이동
 const detail = (healthlogId) => {
-  router.push(`/hlog/${healthlogId}`);
+  router.push(`health/hlog/${healthlogId}`);
 };
 </script>
 
 <template>
-  <div class="list_title">
-    <div>건강기록</div>
-    <div>
-      <i class="bi bi-plus-circle btn-plus" @click="add"></i>
+  <div class="wrap">
+    <div class="list_title">
+      <div>건강기록</div>
+      <div>
+        <i class="bi bi-plus-circle btn-plus" @click="add"></i>
+      </div>
     </div>
-  </div>
-  <div class="list-wrap">
-    <ul>
-      <li v-if="state.logs.length < 1" class="title">건강 기록을 추가하세요</li>
-      <li
-        v-for="item in state.logs"
-        :key="item.healthlogId"
-        @click="detail(item.healthlogId)"
-      >
-        <div class="title">
-          {{ formatDate(item.healthlogDatetime) }}
-        </div>
-        <div class="content">
-          <div>건강보기</div>
-        </div>
-      </li>
-    </ul>
+    <div class="list-wrap" @scroll="handleScroll">
+      <ul>
+        <li v-if="healthStore.logList.length < 1" class="title w-100">
+          건강 기록을 추가하세요
+        </li>
+        <li
+          v-for="item in healthStore.logList"
+          :key="item.healthlogId"
+          @click="detail(item.healthlogId)"
+          class="w-100"
+        >
+          <div class="title text-subtitle-1 w-50">
+            {{ formatDate(item.healthlogDatetime) }}
+          </div>
+          <!-- <div class="content text-caption">
+            <div>건강보기</div>
+          </div> -->
+        </li>
+        <li v-if="state.isLoading" class="title">로딩중...</li>
+        <li v-else-if="state.isFinish" class="title">마지막 기록입니다</li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.wrap {
+  min-width: 310px;
+  max-width: 400px;
+  width: 400px;
+}
+
 .list_title {
   display: flex;
   flex-direction: row;
@@ -75,6 +130,7 @@ const detail = (healthlogId) => {
 .list-wrap {
   height: 300px;
   overflow: auto;
+  overflow-x: hidden;
 }
 ul {
   display: flex;
@@ -88,18 +144,18 @@ ul {
     align-items: center;
     justify-content: space-between;
 
-    width: 400px;
+    // max-width: 400px;
+
+    min-width: 310px;
     height: 80px;
     margin: 9px 0;
-    padding: 5px 40px;
+    padding: 5px 35px;
     border-radius: 40px;
     background-color: #3bbeff;
     cursor: pointer;
   }
 }
 .title {
-  font-size: 18px;
-  font-weight: 600;
   color: #fff;
 }
 

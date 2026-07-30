@@ -1,9 +1,25 @@
+// src/services/community/mentService.js
 import axios from 'axios';
 
-export const fetchMents = (postId) => axios.get(`/api/OTD/comment/${postId}`);
+//공통 베이스 URL
+axios.defaults.baseURL = '/api/OTD/';
 
-export const createMent = (postId, content) =>
-  axios.post(`/api/OTD/comment/${postId}`, { content });
+//세션 쿠키(로그인) 전달
+axios.defaults.withCredentials = true;
 
-export const deleteMent = (commentId) =>
-  axios.delete(`/api/OTD/comment/${commentId}`);
+const COMMENT_BASE = 'community/comment/';
+
+// 댓글 목록 조회
+export const fetchMents = (postId) => {
+  return axios.get(`${COMMENT_BASE}${postId}`);
+};
+
+// 댓글 등록
+export const createMent = (payload) => {
+  return axios.post(`${COMMENT_BASE}create`, payload);
+};
+
+// 댓글 삭제
+export const deleteMent = (commentId) => {
+  return axios.delete(`${COMMENT_BASE}delete/${commentId}`);
+};

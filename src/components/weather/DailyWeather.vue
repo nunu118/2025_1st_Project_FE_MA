@@ -1,0 +1,67 @@
+<script setup>
+import { ref, computed, onMounted, effect } from 'vue';
+import { getDailyWeather } from '@/services/weather/weatherHomeService';
+
+const dayWeather = ref([]);
+const scrollRef = ref(null);
+
+const DayWeather = async () => {
+  const res = await getDailyWeather();
+  dayWeather.value = res.data;
+};
+
+const convertTime = (fcstTime) => {
+  // 앞 두자리만 잘라서 숫자로 변환
+  const hour = parseInt(fcstTime.substring(0, 2), 10);
+  return `${hour}시`;
+};
+const dayWeatherWithTime = computed(() =>
+  dayWeather.value.map((item) => ({
+    ...item,
+    time: convertTime(item.fcstTime),
+    emoji: skyEmojiList[item.pty] || skyEmojiList[item.sky] || '',
+  }))
+);
+const skyEmojiList = {
+  맑음: '☀️',
+  흐림: '☁️',
+  '구름 많음': '🌤️',
+  비: '🌧️',
+  눈: '❄️',
+  '비/눈': '🌨️',
+};
+
+onMounted(async () => {
+  await DayWeather();
+
+  const xs = scrollRef.value;
+  xs.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    xs.scrollLeft += e.deltaY;
+  });
+});
+</script>
+
+<template>
+  <div class="info" ref="scrollRef">
+    <div class="item" v-for="item in dayWeatherWithTime" :key="item.fcstTime">
+      {{ item.time }} {{ item.emoji }} {{ item.tmp }}℃
+    </div>
+  </div>
+</template>
+
+<style lang="scss" scoped>
+.info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+.item {
+  margin-right: 1rem;
+}
+</style>

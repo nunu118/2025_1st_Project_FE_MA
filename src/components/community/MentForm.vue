@@ -1,33 +1,31 @@
-<!-- <script setup>
-import { usecommunityStore } from '@/stores/communityStore';
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue';
+import { useDialogStore } from '@/stores/community/dialogStore';
 import { useAccountStore } from '@/stores/counter';
-import axios from 'axios';
-import { ref, computed, onMounted } from 'vue';
+import { usecommunityStore } from '@/stores/community/communityStore';
 import {
-  deletePost,
-  toggleLike,
-  fetchPostById,
-} from '@/services/community/communityService';
+  fetchMents,
+  createMent as apiCreateMent,
+  deleteMent as apiDeleteMent,
+} from '@/services/community/mentService';
 
-const store = usecommunityStore();
+const dialog = useDialogStore();
 const account = useAccountStore();
+const store = usecommunityStore();
 
 const post = computed(() => store.selectedPost);
-const isOwner = computed(
-  () => Number(post.value?.memberNoLogin) === Number(account.loggedInId)
-);
 
-const isLiked = ref(false);
-const likeCount = ref(0);
+const ments = ref([]);
+const newMent = ref('');
+const loading = ref(false);
 
-const ments = ref([]); // ✅ 댓글 목록
-const newMent = ref(''); // ✅ 작성 중인 댓글
-
-// 날짜 포맷 함수
+// 날짜 포맷
 function formatDate(dateStr) {
-  const date = new Date(dateStr);
-  if (isNaN(date)) return '날짜 오류';
-  return date.toLocaleString('ko-KR', {
+  const hasTz = /Z$|[+-]\d{2}:\d{2}$/.test(dateStr);
+  const iso = hasTz ? dateStr : dateStr.replace(' ', 'T') + '+09:00';
+  const d = new Date(iso);
+  if (isNaN(d)) return '날짜 오류';
+  return d.toLocaleString('ko-KR', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -36,84 +34,128 @@ function formatDate(dateStr) {
   });
 }
 
-onMounted(async () => {
-  if (post.value?.postId) {
-    try {
-      const res = await axios.get(
-        `/api/OTD/community/comment/${post.value.postId}`
-      );
-      ments.value = res.data;
-    } catch (err) {
-      console.error('댓글 조회 실패:', err);
-    }
-  }
-});
-
-//댓글 등록하는 메서드
-const submitMent = async () => {
-  if (!newMent.value.trim()) return;
-
-  const payload = {
-    postId: post.value.postId,
-    memberNoLogin: account.loggedInId,
-    content: newMent.value,
-  };
-
+// 목록 로드
+const loadMents = async () => {
+  if (!post.value?.postId) return;
   try {
-    await axios.post('/api/OTD/community/comment/create', payload);
-    newMent.value = '';
-
-    // 다시 댓글 목록 불러오기
-    const res = await axios.get(
-      `/api/OTD/community/comment/${post.value.postId}`
-    );
-    ments.value = res.data;
-  } catch (err) {
-    console.error('댓글 등록 실패:', err);
+    const res = await fetchMents(post.value.postId);
+    ments.value = Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    console.error('댓글 조회 실패:', e);
+    await dialog.alert({ title: '오류', message: '댓글 조회에 실패했습니다.' });
   }
 };
+
+// 등록
+const submitMent = async () => {
+  if (!newMent.value.trim() || !post.value?.postId) return;
+  loading.value = true;
+  try {
+    await apiCreateMent({
+      postId: post.value.postId,
+      content: newMent.value.trim(),
+    });
+    newMent.value = '';
+    await loadMents();
+  } catch (e) {
+    console.error('댓글 등록 실패:', e);
+    const msg =
+      e?.response?.status === 401
+        ? '로그인이 필요합니다.'
+        : '댓글 등록에 실패했습니다.';
+    await dialog.alert({ title: '오류', message: msg });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 삭제
+const onDeleteMent = async (commentId) => {
+  const ok = await dialog.confirm({
+    title: '삭제 확인',
+    message: '댓글을 삭제하시겠습니까?',
+    confirmText: '삭제',
+    cancelText: '취소',
+  });
+  if (!ok) return;
+  loading.value = true;
+  try {
+    await apiDeleteMent(commentId);
+    await loadMents();
+  } catch (e) {
+    console.error('댓글 삭제 실패:', e);
+    await dialog.alert({ title: '오류', message: '댓글 삭제에 실패했습니다.' });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// postId 변경 시 자동 로딩
+watch(
+  () => post.value?.postId,
+  (v) => v && loadMents(),
+  { immediate: true }
+);
+
+onMounted(() => {
+  if (post.value?.postId) loadMents();
+});
 </script>
 
 <template>
-  <v-container class="pa-6" fluid>
-    <v-card class="mx-auto" max-width="800" elevation="2" rounded="lg">
-      <v-card-text>
-        <h2 class="mb-6 font-weight-bold text-h5">글쓰기</h2>
+  <div class="comment-section">
+    <div class="text-subtitle-2 font-weight-medium mb-3">
+      댓글 {{ ments.length }}개
+    </div>
 
-        <v-text-field
-          v-model="title"
-          label="제목"
-          variant="outlined"
-          density="comfortable"
-          class="mb-4"
-          clearable
-        />
+    <v-list class="mb-4">
+      <v-list-item v-for="ment in ments" :key="ment.commentId">
+        <div class="d-flex align-center justify-space-between w-100">
+          <div class="d-flex align-center">
+            <v-avatar size="36" class="mr-2">
+              <v-img v-if="ment.memberImg" :src="ment.memberImg" />
+              <v-icon v-else>mdi-account-circle</v-icon>
+            </v-avatar>
+            <span class="text-subtitle-2 font-weight-medium">
+              {{ ment.memberNick }}
+            </span>
+          </div>
+          <span class="text-caption text-grey">{{
+            formatDate(ment.updatedAt)
+          }}</span>
+        </div>
 
-        <v-textarea
-          v-model="content"
-          label="내용"
-          variant="outlined"
-          auto-grow
-          rows="6"
-          clearable
-        />
-
-        <div class="d-flex justify-end mt-6">
+        <div class="text-body-2 mt-1 pl-10 d-flex justify-space-between">
+          <span style="white-space: pre-wrap">{{ ment.content }}</span>
           <v-btn
-            color="primary"
-            variant="flat"
-            class="mr-2"
-            @click="submitPost"
+            v-if="ment.memberNoLogin === account.loggedInId"
+            icon
+            size="small"
+            @click="onDeleteMent(ment.commentId)"
+            :disabled="loading"
           >
-            등록
-          </v-btn>
-          <v-btn color="grey" variant="outlined" @click="cancelWrite">
-            취소
+            <v-icon small>mdi-delete</v-icon>
           </v-btn>
         </div>
-      </v-card-text>
-    </v-card>
-  </v-container>
+      </v-list-item>
+    </v-list>
+
+    <v-text-field
+      v-model="newMent"
+      placeholder="댓글을 입력하세요"
+      variant="outlined"
+      density="comfortable"
+      rounded
+      :disabled="loading"
+      append-inner-icon="mdi-send"
+      @click:append-inner="submitMent"
+      @keyup.enter="submitMent"
+    />
+  </div>
 </template>
 
-<style scoped></style> -->
+<style scoped>
+.comment-section {
+  padding-left: 2rem;
+}
+</style>
