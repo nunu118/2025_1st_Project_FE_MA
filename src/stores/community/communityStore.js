@@ -6,6 +6,12 @@ import {
 } from '@/services/community/communityService';
 
 export const usecommunityStore = defineStore('community', () => {
+  state: () => ({
+    posts: [],
+    totalCount: 0, //  totalCount 초기값 선언
+    pageSize: 10,
+  })
+
   const posts = ref([]);
   const search = ref('');
   const sortOption = ref('latest');

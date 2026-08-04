@@ -21,9 +21,11 @@ const filteredPosts = computed(() => {
   );
 });
 
-const pageCount = computed(() =>
-  Math.ceil(filteredPosts.value.length / itemsPerPage)
-);
+const pageCount = computed(() => {
+  // 스토어에 totalCount가 있으면 쓰고, 없으면 filteredPosts 길이 사용
+  const total = store.totalCount ?? filteredPosts.value.length ?? 0;
+  return Math.ceil(total / itemsPerPage) || 1; // 0 이하이거나 NaN일 경우 최소 1 페이지 보장
+});
 
 const currentPagePosts = computed(() => store.sortedPosts);
 
@@ -143,7 +145,7 @@ const handlePostClick = (post) => {
       <v-row justify="center" class="mt-5 pager-row">
         <v-pagination
           v-model="currentPage"
-          :length="Math.ceil(totalCount / 10)"
+          :length="pageCount"
           rounded
           color="primary"
           density="compact"

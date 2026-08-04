@@ -10,7 +10,9 @@ const props = reactive({ diaryProp: null });
 
 // 훅 사용 (기존 로직 유지: emit 이벤트만 받아서 페이지에서 처리)
 const emit = async (event) => {
-  if (event === 'created' || event === 'updated' || event === 'deleted') {
+  if (event === 'created' ||
+      event === 'updated' ||
+      event === 'deleted') {
     await afterMutate();
   } else if (event === 'cancel') {
     handleClear();
@@ -61,6 +63,15 @@ const fetchDiaryList = async () => {
   }
 };
 
+// 취소/목록 버튼
+const handleClear = () => {
+  props.diaryProp = null;
+  if (typeof clearForm === 'function') {
+    clearForm();
+  }
+  setMode('create');
+};
+
 // 생성/수정/삭제 후 공통 후처리
 const afterMutate = async () => {
   await fetchDiaryList();
@@ -73,13 +84,6 @@ const handleSelect = async (item) => {
   props.diaryProp = item;
   setMode('view');
   window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-// 취소/목록 버튼
-const handleClear = () => {
-  props.diaryProp = null;
-  clearForm();
-  setMode('create');
 };
 
 onMounted(fetchDiaryList);
